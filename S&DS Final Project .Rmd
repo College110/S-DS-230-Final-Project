@@ -1,0 +1,207 @@
+---
+title: "S&DS 230 Final Project"
+author: "Arav Bhagwati, Sara Cao, Aadi Krishna, and Hiren Parekh"
+date: "2023-08-06"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# The Effect of Different Factors on the Success of Movies
+
+
+## Introduction
+
+In a world where our interactions with digital media inform our everyday decisions and behavior, movies are a powerful form of entertainment that allow us to escape from our daily lives and immerse ourselves in captivating stories and characters. But what makes a high grossing movie so popular? And how exactly is movie grossing and popularity related to budget? In this report, we will analyze how different factors might contribute to the overall popularity and grossing of a movie. We use a [dataset](https://www.kaggle.com/datasets/alessandrolobello/the-ultimate-film-statistics-dataset-for-ml) obtained from Kaggle, which provides comprehensive movie statistics compiled from various sources. Movies are an integral part of our cultural fabric, and it is important to examine audience preferences in order to gain insight on the common thread of movies as an art form that promotes unity and creativity. 
+
+## Data
+
+```{r}
+movies<-read.csv("movie_statistic_dataset.csv")
+head(movies)
+names(movies)
+dim(movies)
+```
+### Variables Used (renamed during cleaning)
+* genres: genres of movies, 20 different categories
+* runtimeMins: length of movie in minutes
+* averageRating: the average rating given by online users for a particular movie
+* numberOfVotes: the number of votes given by online users for a particular movie
+* approvalIndex: a normalized indicator (on scale 0-10) calculated by multiplying the logarithm of the number of
+votes by the average users rating. It provides a concise measure of a movie's overall popularity and approval among
+online viewers, penalizing both films that got too few reviews and blockbusters that got too many.
+* productionBudget: production budget in millions of dollars
+* domesticGross: domestic earnings in millions of dollars
+* worldwideGross: worldwide earnings in millions of dollars
+* productionYear: denotes whether the movie came out before/during 2015 or after 2015
+
+## Data Cleaning & Process
+```{r}
+str(movies)
+sum(complete.cases(movies))
+movies_com<-movies[complete.cases(movies),]
+dim(movies_com)
+```
+
+```{r}
+movies$director_name<-gsub("-", NA, movies$director_name)
+movies$director_professions<-gsub("-", NA, movies$director_professions)
+movies$director_birthYear<-gsub("-", NA, movies$director_birthYear)
+movies$director_birthYear<-gsub("\\N", NA, movies$director_birthYear)
+movies$director_deathYear<-gsub("-", NA, movies$director_deathYear)
+movies$director_deathYear<-gsub("\\N", NA, movies$director_deathYear)
+movies_com<-na.omit(movies)
+head(movies_com)
+dim(movies_com)
+movies_com$genres
+```
+*First, we marked all columns with missing information as NA and removed all rows with NA values entirely.*
+
+
+```{r}
+movie1 <- movies_com
+Genrelist <- c("Action", "Adventure", "Comedy", "Drama", "Family", "Fantasy", "Sci-Fi", "Thriller")
+indmat <- matrix(0, ncol = length(Genrelist), nrow = nrow(movie1))
+colnames(indmat) <- Genrelist
+
+for (i in 1:length(Genrelist)){
+  indmat[, i][grep(Genrelist[i], movie1$genres)] <- 1  
+}
+head(indmat)
+movie1$genres[1:10]
+
+movie1 <- cbind(movie1,indmat)
+names(movie1)
+
+sum(movie1$Action)
+```
+*Next, we noticed that each movie is categorized by multiple genres, and each genre is separated by commas in the "genres" column. To fix this, we created a new dataframe called movie1 that takes the genre values from movies_com and creates a binary indicator matrix for the 8 most common genres, appending these genre indicators as additional columns to the original dataset. Each movie is represented by a binary vector indicating the genres it belongs to.*
+
+
+```{r}
+movie1$production_date <- as.numeric(substr(movie1$production_date, 1, 4))
+movie1$productionYear <- "After 2015"
+movie1$productionYear[movie1$production_date <= 2015] <- "Before or During 2015"
+```
+
+*Here, we added a new column to the dataframe called "productionYear" that denotes whether a film was released before/during 2015 or after 2015.*
+
+```{r}
+names(movie1)[names(movie1) == "movie_title"] <- "title"
+names(movie1)[names(movie1) == "production_date"] <- "productionDate"
+names(movie1)[names(movie1) == "runtime_minutes"] <- "runtimeMins"
+names(movie1)[names(movie1) == "director_name"] <- "directorName"
+names(movie1)[names(movie1) == "director_professions"] <- "directorProfessions"
+names(movie1)[names(movie1) == "director_birthYear"] <- "directorBirthYear"
+names(movie1)[names(movie1) == "director_deathYear"] <- "directorDeathYear"
+names(movie1)[names(movie1) == "movie_averageRating"] <- "averageRating"
+names(movie1)[names(movie1) == "movie_numerOfVotes"] <- "numberOfVotes"
+names(movie1)[names(movie1) == "approval_Index"] <- "approvalIndex"
+names(movie1)[names(movie1) == "Production.budget.."] <- "productionBudget"
+names(movie1)[names(movie1) == "Domestic.gross.."] <- "domesticGross"
+names(movie1)[names(movie1) == "Worldwide.gross.."] <- "worldwideGross"
+
+movie1$productionBudget <- movie1$productionBudget/1000000
+movie1$domesticGross <- movie1$domesticGross/1000000
+movie1$worldwideGross <- movie1$worldwideGross/1000000
+
+head(movie1)
+attach(movie1)
+```
+
+*Finally, we adjusted the monetary columns to be in millions of dollars and cleaned up the column names in the dataframe so that calling variables would be easier.*
+
+## Plots
+
+```{r}
+hist(productionBudget, breaks = 50, col = "red", main = "Histogram of Movie Production Budget", xlab = "Millions of Dollars")
+
+hist(approvalIndex, breaks = 50, col = "orange", main = "Histogram of Movie Approval Index Score", xlab = "Approval Index Score")
+
+boxplot(domesticGross, horizontal = TRUE, col = "blue", lwd = 2, main = "Movie Domestic Gross", xlab = "Millions of Dollars")
+
+plot(productionBudget, approvalIndex, pch = 19, col = "orange", xlab = "Movie Budget (Millions of Dollars)", ylab = "Approval Index Score", main = "Movie Approval Index Score vs. Production Budget")
+mtext(paste("Correlation =", round(cor(productionBudget, approvalIndex, use = "complete.obs"), 2)), cex = .8)
+
+plot(log(productionBudget), log(domesticGross), pch = 19, col = "blue", xlab = "Log Movie Budget (Millions of Dollars)", ylab = "Log Domestic Gross (Millions of Dollars)", main = "Movie Domestic Gross vs. Production Budget (Log Scale)")
+mtext(paste("Correlation =", round(cor(productionBudget, domesticGross, use = "complete.obs"), 2)), cex = .8)
+
+library(car)
+qqPlot(approvalIndex, pch = 19, main = "Normal Quantile Plot of Approval Index")
+qqPlot(log(domesticGross), pch = 19, main = "Normal Quantile Plot of Domestic Gross")
+
+```
+
+*To get a sense of the dataset and an overall view on how it behaves, we started off by plotting different variables. From these graphs, it is evident that the production budget and the domestic gross are heavily right skewed while the approval index score is approximately normally distributed. There is a somewhat high positive correlation between domestic gross and production budget, but the data does not seem to take on any concrete shape.*
+
+
+```{r}
+boxplot(log(domesticGross) ~ productionYear, main = "Boxplot of Log Domestic Gross by Production Year", col = c(2, 4), lwd = 2, xlab = "Production Year", ylab = "Log Domestic Gross (Millions of Dollars)")
+test1 <- t.test(log(domesticGross) ~ productionYear, conf.level = .99)
+test1
+
+summary(domesticGross)
+```
+
+*We decided to specifically analyze the relationship between production year and domestic gross (on the log scale) -- does the passage of time have an effect on how well movies do? From the boxplots, there doesn't seem to be a visible relationship between the log of domestic gross and production year, since both timeframes have similar medians and interquartile ranges. However, there are some outliers, especially in the "Before or During 2015" category, which can have a large effect on the overall relationship between the two variables. From the t-test, we can conclude that the true difference in means between movies released After 2015 and movies released Before or During 2015 is not equal to 0, because the p-value is less than the threshold of 0.05 and the confidence interval does not capture the value of 0.*
+
+
+```{r}
+set.seed(230) 
+N <- 10000
+diffGross <- rep(NA, N)
+for (i in 1:N) {
+  sB <- sample(log(domesticGross[productionYear == "Before or During 2015"]),
+               sum(productionYear == "Before or During 2015"), replace = TRUE)
+  sA <- sample(log(domesticGross[productionYear == "After 2015"]),
+               sum(productionYear == "After 2015"), replace = TRUE)
+  diffGross[i] <- mean(sA) - mean(sB)
+}
+
+ci <- quantile(diffGross, c(0.005, 0.995))
+round(ci, 2)
+
+hist(diffGross, col = "blue", main = "Bootstrapped Sample Mean Diff in Domestic Gross of Movies (Log Scale)", xlab = "Log Domestic Gross (Millions of Dollars)", breaks = 50, cex.main = 1.0)
+
+abline(v = ci, lwd = 3, col = "red")
+abline(v = test1$conf.int, lwd = 3, col = "green", lty = 2)
+legend("topright", c("Original CI", "Boot CI"), lwd = 3, col = c("green", "red"), lty = c(2,1))
+```
+
+*The bootstrapped sample results of the mean difference in domestic gross of movies (on the log scale) affirm the conclusion we drew from the t-test. Both the original and bootstrapped confidence intervals are pretty similar--the bootstrapped CI has a slightly larger range. Neither CI has the value zero in it, which is evidence that there is a statistically significant difference between the mean differences in domestic gross.*
+
+
+```{r}
+set.seed(230)
+
+diffMedian <- by(log(domesticGross), productionYear, median)
+diffMedian <- diffMedian["After 2015"] - diffMedian["Before or During 2015"]
+
+N <- 10000
+diffvals <- rep(NA, N)
+
+for (i in 1:N) {
+  fakeyear <- sample(productionYear)
+  diffvals[i] <- median(log(domesticGross[fakeyear == "After 2015"])) - median(log(domesticGross[fakeyear == "Before or During 2015"]))
+}
+
+hist(diffvals, main = "Permuted Sample Median Diff in Domestic Gross (Log Scale)", xlab = "Log Domestic Gross (Millions of Dollars)", col = "blue", breaks = 30)
+abline(v = diffMedian, col = "red", lwd = 3)
+text(diffMedian + 0.03, 550, paste("Actual Diff in Medians =", round(diffMedian,2)), srt = 90)
+
+mean(abs(diffvals) >= abs(diffMedian))
+```
+*In the last visual representation for log domestic gross by production year, we performed a permutation test to obtain a p-value for a hypothesis test. The null hypothesis is that there is no significant difference between median domestic gross for movies released before/during 2015 and after 2015. The alternative hypothesis is that there is a statistically significant difference between median domestic gross for movies released before/during 2015 and after 2015. From the p-value, we can conclude that the null hypothesis cannot be rejected because the p-value of 0.49 is greater than 0.05. This is shown in the histogram as the red line denoting the actual difference in medians lies within the permuted sample median values.*
+
+## Analysis
+
+## Conclusion & Summary
+
+
+
+
