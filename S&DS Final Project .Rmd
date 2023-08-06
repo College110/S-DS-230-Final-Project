@@ -289,12 +289,19 @@ max(std_dev)/min(std_dev)
 
 ```
 
-We find a value of 1.7621, which is less than 2 therefore demonstrating that the variances are indeed the same across professions. Next, we develop our ANOVA model, 'aov1' that 
+We find a value of 1.7621, which is less than 2 therefore demonstrating that the variances are indeed the same across professions. Next, we develop our ANOVA model, 'aov1' that compares the means of domestic gross between the professions to see if there is a statistically significant difference between the professions. 
 
 ```{r}
 
 aov1 <- aov(movie1$domesticGross ~ movie1$primary_profession) 
 summary(aov1)
+
+```
+
+We find a f-value of <2e-16 that is less than the alpha value (0.05), allowing us to reject the null hypothesis and find there is a statistically significant difference in the gross income acorss the movies produced by directors of different primary professions. 
+
+
+```{r}
 
 library(plotrix)
 mod1 <- lm(movie1$domesticGross ~ movie1$primary_profession - 1)
@@ -315,18 +322,35 @@ plotCI(coefs, 1:(length(coefs)), ui = conf_int[,2], li = conf_int[,1], axes = F,
 axis(side = 1)
 axis(side = 2, at = 1:(length(coefs)), label = levels(as.factor(movie1$primary_profession)), las = 2)
 
+```
+Since most of the group's true means don't fall inside the confidence intervals, we cannot conclude much from this plot and try to use Holm’s correction for comparing pairs of means and find pairs of professions that have statistically significantly different gross returns.
+
+```{r}
 
 pairwise.t.test(movie1$domesticGross, movie1$primary_profession)
 
+```
+
+Based on the table, we find that the pairs that have statistically significantly different percent returns with a p-value of <0.05 (alpha value) are: other - movie star, producer - director, producer - movie star, producer - other, writer - movie star, writer - movie star, writer - producer. We further verify whether these are accurate by calculating Tukey simultaneous 95% confidence intervals for differences in mean percent return using the TukeyHSD() function. 
+
+```{r}
 
 TukeyHSD(aov1)
 
 par(mar = c(5, 11, 4, 1)) 
 plot(TukeyHSD (aov1), las = 1)
 
+```
+
+We reach different conclusions than when using the Holm correction, as using the Tukey simultaneous 95% confidence intervals, finding that the pairs that have statistically significantly different percent returns are: producer-director, producer-movie star, producer-other, writer-producer. Lastly, we plot the residual plots to see if they have normal distributions and display any signs of heteroskedasticity to judge this model's fit. 
+
+```{r}
+
 myResPlots2(aov1)
 
 ```
+
+The residual plot does not seem normally distributed with extreme deviations from linearity on both tails. However, there do not seem to be signs of heteroskedasticity but slightly professions seem slightly right skewed. To address these issues, we use a boxCox() function to see what kind of transformation is recommended. 
 
 ```{r}
 
@@ -336,8 +360,7 @@ trans1$x[which.max(trans1$y)]
 
 ```
 
-This suggests a natural log transformation. So, we repeat the entire process we just did by creating a new column called 'transformed_gross' with a transformed value of domesticgross to the value found using boxCox above: 0.2222.
-
+We find a recommended value of 0.2222 for the power of lambda, and the proximity to zero of the log-likelihood graph suggests a natural log transformation. So, we repeat the entire process we just did by creating a new column called 'transformed_gross' with a transformed value of domesticgross to the value found using boxCox above: 0.2222. 
 
 ```{r}
 
@@ -347,14 +370,30 @@ boxplot(movie1$transformed_gross ~ movie1$primary_profession, xlab = "Genre of M
 means <- tapply(movie1$transformed_gross, movie1$primary_profession, mean) 
 points(means, col = "red", pch = 20, cex = 1.2)
 
-library(lattice)
-stripplot(movie1$transformed_gross ~ movie1$primary_profession, xlab = "Genre of Movie", ylab = "Approval Index", jitter = 0.1, main = "Approval Index by Movie Genre")
+```
+The boxplots demonstrate lesser variance across the groups and address the issues of spread. As before, we calculate the ratio of the maximum and minimum standard deviation to decide whether the variance is suitable to apply ANOVA. 
+
+```{r}
+
+#library(lattice)
+#stripplot(movie1$transformed_gross ~ movie1$primary_profession, xlab = "Genre of Movie", ylab = "Approval Index", jitter = 0.1, main = "Approval Index by Movie Genre")
 
 (std_dev <- tapply(movie1$transformed_gross, movie1$primary_profession, sd))
 max(std_dev)/min(std_dev)
 
-aov1 <- aov(movie1$transformed_gross ~ movie1$primary_profession) 
-summary(aov1)
+```
+
+With a value of 1.117636 that is less than 2, the variances are seem across the professions and we can develop our new transformed ANOVA model. 
+
+```{r}
+
+aov2 <- aov(movie1$transformed_gross ~ movie1$primary_profession) 
+summary(aov2)
+
+```
+
+
+```{r}
 
 library(plotrix)
 mod1 <- lm(movie1$transformed_gross ~ movie1$primary_profession - 1)
@@ -376,17 +415,17 @@ axis(side = 1)
 axis(side = 2, at = 1:(length(coefs)), label = levels(as.factor(movie1$primary_profession)), las = 2)
 
 
-pairwise.t.test(movie1$transformed_gross, movie1$primary_profession)
-
-
-TukeyHSD(aov1)
+TukeyHSD(aov2)
 
 par(mar = c(5, 11, 4, 1)) 
-plot(TukeyHSD (aov1), las = 1)
+plot(TukeyHSD (aov2), las = 1)
 
-myResPlots2(aov1)
+myResPlots2(aov2)
 
 ```
+Overall, this model proves to be a better fit and provides better evidence that there is a statistically significant difference between the groups. This is evidenced by the normal quantile plots of the studentized residuals which demonstrates that they are approximately normally distributed and the Fits vs Studentized residual plots that display no clear signs of heteroskedasticity and far lesser right skewness.
+
+Going through results, we can conclude that we can reject the null hypothesis with a f-statistic p-value of <2.2e-16, suggesting that there is a statistically significant difference across the groups, and then our model finds a much higher Multiple R-squared of 0.9047. Moroever, even though many of the group means don't exactly overall with the confidence intervals, we can see that producer's and writer's have the highest movie gross income amounts. The Tukey comparisons ascertain the following are the statitically significant pairings: producer-director, producer-movie star, producer-other and writer-producer. From the inclusion of producer is all pairings, it is further clear that having a director who is a producer by their primary profession has the highest probability of creating a high grossing movie.
 
 
 ## Analysis
