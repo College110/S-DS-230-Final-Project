@@ -137,7 +137,7 @@ qqPlot(log(domesticGross), pch = 19, main = "Normal Quantile Plot of Domestic Gr
 
 ```
 
-*To get a sense of the dataset and an overall view on how it behaves, we started off by plotting different variables. From these graphs, it is evident that the production budget and the domestic gross are heavily right skewed while the approval index score is approximately normally distributed. There is a somewhat high positive correlation between domestic gross and production budget, but the data does not seem to take on any concrete shape.*
+*To get a sense of the dataset and an overall view on how it behaves, we started off by plotting different variables. We created the following: a histogram of movie production budget, a histogram of movie approval index score, a boxplot of movie domestic gross, a scatterplot of movie approval index score plotted against production budget, a scatterplot of movie domestic gross vs. production budget (on the log scale), a normal quantile plot of approval index, and a normal quantile plot of domestic gross. From these graphs, it is evident that the production budget and the domestic gross are heavily right skewed while the approval index score is approximately normally distributed with a slight left skew. There is a moderate positive correlation between domestic gross and production budget on the log scale, but the data does not seem to take on any concrete shape. There is a weak positive correlation between movie approval index score and production budget.*
 
 
 ```{r}
