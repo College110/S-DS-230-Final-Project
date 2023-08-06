@@ -247,6 +247,148 @@ library(olsrr)
 source("http://www.reuningscherer.net/s&ds230/Rfuncs/regJDRS.txt")
 myResPlots(modfin, "Model For Domestic Earnings")
 ```
+
+## ANOVA Analysis
+
+In further trying to answer the question of what combination of factors contribute to producing the most successful film, we next look at the success of films depending on the primary profession of it's director. In the data we have been using so far, the column "directorProfessions" has multiple entries separated by commas since most of the directors have multiple professional roles that they choose between depending on the movie. We can see that these entries are not in alphabetical order, but rather in the order of the most appropriate profession for each director, therefore we choose to only use the first entry. To do this, we create a new column in the 'movie1' called 'primary_profession'. Then, we print a table to see the distribution of professions. 
+
+```{r}
+
+movie1$primary_profession <- sapply(strsplit(as.character(movie1$directorProfessions), split = ","), "[", 1)
+(tabular_primary_profession <- data.frame(sort(table(movie1$primary_profession), decreasing = T)))
+
+```
+From this table, we can see that there are four main professions that account for the majority of the movies: director, producer, writer and actor. The rest 19 are small groups comprising of a wide array of specialized film production roles. Expect, the 5th largest group which is actress. To narrow down this spread for an appropriate analysis, we club the entries which should fall into the same category using 'gsub'. Namely: we combine 'actor' and 'actress' into a new category called 'movie star'; 'assistant director' and 'director' into only one category called 'director'; and all the remaining professions into 'other'. Then, we print the same table to see the distribution with our final categories. 
+
+
+```{r}
+
+movie1$primary_profession <- gsub("actor|actress", "movie star", movie1$primary_profession)
+movie1$primary_profession <- gsub("assistant_director", "director", movie1$primary_profession)
+movie1$primary_profession <- gsub("miscellaneous|cinematographer|editor|visual_effects|art_department|soundtrack|stunts|camera_department|animation_department|composer|editorial_department|music_artist|music_department|special_effects|production_designer|sound_department|art_director|casting_director", "other", movie1$primary_profession)
+
+(tabular_primary_profession <- data.frame(sort(table(movie1$primary_profession), decreasing = T)))
+
+```
+
+All the five categories seem to have sufficient frequency to proceed with the analysis. We begin by seeing the gross domestic income by the primary profession of the director. 
+
+```{r}
+
+boxplot(movie1$domesticGross ~ movie1$primary_profession, xlab = "Primary Profession of Director", ylab = "Gross Income (Millions of Dollars)", col = "blue", main = "Boxplot of Gross Income \nby Primary Professional of Director", cex = 0.8)
+means <- tapply(movie1$domesticGross, movie1$primary_profession, mean) 
+points(means, col = "red", pch = 20, cex = 1.2)
+
+```
+The medians and means of gross income have similar across the professions so they follow similar skewness; however, it seems clear that producers have the highest grocing movies on average with the highest quartile values, median and mean. Although, looking at the spread of the boxplot across the y-axis, it seems that because of massively highly grossing films, we might need a log transformation before using ANOVA. To further investigate if other issues such as heteroskedasticity, we calculate the ratio of the largest to smallest sample standard deviation. 
+
+
+```{r}
+(std_dev <- tapply(movie1$domesticGross, movie1$primary_profession, sd))
+max(std_dev)/min(std_dev)
+
+```
+
+We find a value of 1.7621, which is less than 2 therefore demonstrating that the variances are indeed the same across professions. Next, we develop our ANOVA model, 'aov1' that 
+
+```{r}
+
+aov1 <- aov(movie1$domesticGross ~ movie1$primary_profession) 
+summary(aov1)
+
+library(plotrix)
+mod1 <- lm(movie1$domesticGross ~ movie1$primary_profession - 1)
+summary(mod1)
+
+
+conf_int <- confint(mod1)
+round(conf_int, 2)
+
+
+(coefs <- coef(mod1))
+par(mar = c(5, 8, 4, 2))
+
+
+plotCI(coefs, 1:(length(coefs)), ui = conf_int[,2], li = conf_int[,1], axes = F, lwd = 2, main = "Mean and CIs for Percentage Return \nby Movie Genre", col = "green", err = "x", ylab = "", xlab = "Mean (and 95% CI)")
+
+
+axis(side = 1)
+axis(side = 2, at = 1:(length(coefs)), label = levels(as.factor(movie1$primary_profession)), las = 2)
+
+
+pairwise.t.test(movie1$domesticGross, movie1$primary_profession)
+
+
+TukeyHSD(aov1)
+
+par(mar = c(5, 11, 4, 1)) 
+plot(TukeyHSD (aov1), las = 1)
+
+myResPlots2(aov1)
+
+```
+
+```{r}
+
+trans1 <- boxCox(mod1)
+
+trans1$x[which.max(trans1$y)]
+
+```
+
+This suggests a natural log transformation. So, we repeat the entire process we just did by creating a new column called 'transformed_gross' with a transformed value of domesticgross to the value found using boxCox above: 0.2222.
+
+
+```{r}
+
+movie1$transformed_gross <- movie1$domesticGross^0.2222
+
+boxplot(movie1$transformed_gross ~ movie1$primary_profession, xlab = "Genre of Movie", ylab = "Approval Index", col = "blue", main = "Boxplot of Approval Index by Movie Genre", cex = 0.8)
+means <- tapply(movie1$transformed_gross, movie1$primary_profession, mean) 
+points(means, col = "red", pch = 20, cex = 1.2)
+
+library(lattice)
+stripplot(movie1$transformed_gross ~ movie1$primary_profession, xlab = "Genre of Movie", ylab = "Approval Index", jitter = 0.1, main = "Approval Index by Movie Genre")
+
+(std_dev <- tapply(movie1$transformed_gross, movie1$primary_profession, sd))
+max(std_dev)/min(std_dev)
+
+aov1 <- aov(movie1$transformed_gross ~ movie1$primary_profession) 
+summary(aov1)
+
+library(plotrix)
+mod1 <- lm(movie1$transformed_gross ~ movie1$primary_profession - 1)
+summary(mod1)
+
+
+conf_int <- confint(mod1)
+round(conf_int, 2)
+
+
+(coefs <- coef(mod1))
+par(mar = c(5, 8, 4, 2))
+
+
+plotCI(coefs, 1:(length(coefs)), ui = conf_int[,2], li = conf_int[,1], axes = F, lwd = 2, main = "Mean and CIs for Percentage Return \nby Movie Genre", col = "green", err = "x", ylab = "", xlab = "Mean (and 95% CI)")
+
+
+axis(side = 1)
+axis(side = 2, at = 1:(length(coefs)), label = levels(as.factor(movie1$primary_profession)), las = 2)
+
+
+pairwise.t.test(movie1$transformed_gross, movie1$primary_profession)
+
+
+TukeyHSD(aov1)
+
+par(mar = c(5, 11, 4, 1)) 
+plot(TukeyHSD (aov1), las = 1)
+
+myResPlots2(aov1)
+
+```
+
+
 ## Analysis
 
 ## Conclusion & Summary
